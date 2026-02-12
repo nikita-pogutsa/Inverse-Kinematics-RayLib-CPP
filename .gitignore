@@ -1,0 +1,45 @@
+﻿# Build outputs
+/build/
+/out/
+/bin/
+/lib/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.ninja
+.ninja_*
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.VC.opendb
+*.vcxproj.filters.user
+*.vcxproj.user
+
+# MSBuild/VC artifacts
+Debug/
+Release/
+x64/
+Win32/
+*.ilk
+*.pdb
+*.obj
+*.pch
+*.idb
+*.tlog
+*.log
+
+# Rider/JetBrains
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
