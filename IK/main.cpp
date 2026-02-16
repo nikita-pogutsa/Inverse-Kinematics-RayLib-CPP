@@ -6,6 +6,7 @@
 #include <vector>
 #include "raygui.h"
 #include <math.h>
+
 struct Bone
 {
     Vector2 position;
@@ -99,41 +100,33 @@ int main(int argc, char* argv[])
     SetTargetFPS(60);
 
 
-    Vector2 pelvisPos = Vector2{200, 200};
+    Vector2 pelvisPos = Vector2{100, 100};
     Bone* hip = new Bone(pelvisPos, 0, 0, "Pelvis");
+    Bone* thigh = new Bone(Vector2{1,0}, 0, 100, "Thigh");
 
-    Bone* knee = new Bone(Vector2{100, 100}, 0, 100, "Knee");
+    Bone* shin = new Bone(Vector2{1,0}, 0, 100, "Shin");
 
-    Bone* ankle = new Bone(Vector2{100, 100}, 0, 100, "Ankle");
 
-    Bone* foot = new Bone(Vector2{100, 100}, 0, 50, "Foot");
-
-    Bone* hip2 = new Bone(pelvisPos + Vector2{100, 0}, 0, 0, "Pelvis");
-
-    Bone* knee2 = new Bone(Vector2{100, 100}, 0, 100, "Knee");
-
-    Bone* ankle2 = new Bone(Vector2{100, 100}, 0, 100, "Ankle");
-
-    Bone* foot2 = new Bone(Vector2{100, 100}, 0, 50, "Foot");
+    Bone* foot = new Bone(Vector2(), 0, 50, "Foot");
 
 
     Vector2 controlCircle = Vector2{20, 20};
-    Camera3D camera = { 0 };
-    camera.position = { 0.0f, 0.0f, 200.0f };
-    camera.target   = { 0.0f, 0.0f, 0.0f };
-    camera.up       = { 0.0f, 1.0f, 0.0f };
-    camera.fovy     = 45.0f;
-    camera.projection = CAMERA_ORTHOGRAPHIC;   
+    Camera3D camera;
+    camera.position = {0.0f, 0.0f, 200.0f};
+    camera.target = {0.0f, 0.0f, 0.0f};
+    camera.up = {0.0f, 1.0f, 0.0f};
+    camera.fovy = 45.0f;
+    camera.projection = CAMERA_ORTHOGRAPHIC;
     UpdateCamera(&camera, 0);
 
-    
+
     bool dragging = false;
     Vector2 dragOffset = {0, 0};
-    
+
     while (!WindowShouldClose())
     {
         BeginDrawing();
-        
+
         ClearBackground(RAYWHITE);
 
         Vector2 mouse = GetMousePosition();
@@ -141,39 +134,70 @@ int main(int argc, char* argv[])
             CheckCollisionPointCircle(mouse, controlCircle, 20))
         {
             dragging = true;
-            dragOffset = { mouse.x - controlCircle.x, mouse.y - controlCircle.y };
+            dragOffset = {mouse.x - controlCircle.x, mouse.y - controlCircle.y};
         }
 
         if (dragging)
         {
             if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
-                controlCircle = { mouse.x - dragOffset.x, mouse.y - dragOffset.y };
+                controlCircle = {mouse.x - dragOffset.x, mouse.y - dragOffset.y};
             else
                 dragging = false;
         }
-       
-        DrawCircle(controlCircle.x, controlCircle.y, 40, GREEN);
-        // DrawJoint(hip, knee);
-        // DrawJoint(knee, ankle);
-        // DrawJoint(ankle, foot);
+
+        DrawCircle(controlCircle.x, controlCircle.y, 10, GREEN);
+        // DrawJoint(hip, thigh);
+        // DrawJoint(thigh, shin);
+        // DrawJoint(shin, foot);
+
+        auto legLength = thigh->length + shin->length;
+        auto localTargetPos = controlCircle - hip->position;
+        auto hipToTargetDistance = std::min(Vector2Distance(hip->position, hip->position + localTargetPos), legLength);
+        DrawText(std::to_string(hipToTargetDistance).c_str(), controlCircle.x + TEXTOFFSETX,
+                 controlCircle.y + TEXTOFFSETY, 20, BLACK);
+        //
+        // auto theta2 = acosf((powf(hip->length,2) + pow(shin->length,2) - pow(hipToTargetDistance,2))
+        //     / 2 * hip->length * shin->length);
+        //
+        // auto psi = acosf((pow(hip->length,2) - pow(shin->length,2) + pow(hipToTargetDistance,2)/2 * hip->length * hipToTargetDistance);
+        //
+        // auto theta1 = psi + theta2;
+        //
+        // auto rotatedThigh = RotateVector2(thigh->direction, theta1);
+        // DrawLine(hip->position.x, hip->position.y, rotatedThigh.x * thigh->length, rotatedThigh.y * thigh->length, BLACK);
+        // auto rotatedShin = RotateVector2(shin->direction, theta2);
+        //
+        // auto shinEndPos = hip->position + rotatedShin;
+        //
+        //
+        DrawCircle(hip->position.x, hip->position.y, 10, RED);
+        // DrawLine(hip->position.x, hip->position.y, hip->position.x + thigh->direction.x * 100,
+        //          hip->position.y + thigh->direction.y * 100, BLACK);
+
+        // DrawLine(shinEndPos.x, shinEndPos.y, (shinEndPos + shin->position).x, (shinEndPos + shin->position).y, BLACK);        
         //
 
-        auto legLength  = hip->length + knee->anlge;
-        auto hipToTargetDistance = std::min(Vector2Distance(hip->position, controlCircle), legLength);
+        float theta2Rad = acosf(
+            (powf(thigh->length, 2) + (powf(shin->length, 2) - pow(hipToTargetDistance, 2))) / (2 * thigh->length * shin
+                ->length));
+        float fiRad = atan2f(controlCircle.y, controlCircle.x);
 
-        auto theta2 = acosf((powf(hip->length,2) + pow(knee->length,2) - pow(hipToTargetDistance,2))
-            / 2 * hip->length * knee->length);
-        
-        auto psi = acosf((pow(hip->length,2) - pow(knee->length,2) + pow(hipToTargetDistance,2))/2 * hip->length * hipToTargetDistance);
-        
-        auto theta1 = psi + theta2;
-        
-        
-        
-        
+        float psiRad = acos(
+            (powf(hipToTargetDistance, 2) - powf(thigh->length, 2) - pow(shin->length, 2)) / (shin->length * thigh->
+                length));
+        float theta1Rad = fiRad - psiRad;
+
+        auto rotatedTheta1 = RotateVector2(thigh->direction, theta1Rad);
+
+        auto rotatedTheta2 = RotateVector2(shin->direction, theta2Rad);
+
+        shin->position = hip->position + rotatedTheta1 * thigh->length;
+        DrawLine(hip->position.x, hip->position.y, hip->position.x + rotatedTheta1.x, hip->position.y + rotatedTheta1.y,
+                 GREEN);
+        DrawLine(shin->position.x, shin->position.y, shin->position.x + rotatedTheta2.x,
+                 shin->position.y + rotatedTheta2.y, YELLOW);
         EndDrawing();
     }
-
     CloseWindow();
 
     return 0;
@@ -181,7 +205,7 @@ int main(int argc, char* argv[])
 
 Vector2 RotateVector2(const Vector2 vector, const float angle)
 {
-    float radAngle = angle * DEG2RAD;
+    float radAngle = angle;
     const float x = cos(radAngle) * vector.x - vector.y * sin(radAngle);
     const float y = sin(radAngle) * vector.x + vector.y * cos(radAngle);
 
