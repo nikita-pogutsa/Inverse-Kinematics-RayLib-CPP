@@ -80,25 +80,30 @@ int main(int argc, char* argv[])
         float L1 = thigh->length;
         float L2 = shin->length;
         auto legLength = L1 + L2;
-        auto localTargetPos = controlCircle - hip->position;
-        auto r = Clamp(Vector2Length(localTargetPos), 0.1f, legLength);
-        DrawText(std::to_string(r).c_str(), controlCircle.x + textoffsetx,
+        //Converting target position into hip space
+        Vector2 localTargetPos = controlCircle - hip->position;
+        //r - distance between target and origin (hip)
+        const float radius = Clamp(Vector2Length(localTargetPos), 0.1f, legLength);
+        DrawText(std::to_string(radius).c_str(), controlCircle.x + textoffsetx,
                  controlCircle.y + textoffsety, 20, BLACK);
 
         DrawCircle(hip->position.x,  hip->position.y, 10.0f, RED);
 
+        //Shin angle - angle betwwen the forward thigh vector and radius
         float theta2Rad = PI- acosf(
-            Clamp((L1 * L1 + L2*L2 - r*r) / (2.0f * L1 * L2), -1.0f, 1.0f));
+            Clamp((L1 * L1 + L2*L2 - radius*radius) / (2.0f * L1 * L2), -1.0f, 1.0f));
 
+        //Angle between the X axis and the radius vector (in radians)
         float phiRad = atan2f( localTargetPos.y, localTargetPos.x);
 
-        float psiRad = acos(Clamp((r*r + L1*L1 - L2 * L2) / (2.0f    * L1 * r), -1.0f, 1.0f));
+        //angle betwween L1 (thigh) and r (hip to IK target)
+        float psiRad = acos(Clamp((radius*radius + L1*L1 - L2 * L2) / (2.0f    * L1 * radius), -1.0f, 1.0f));
 
         float theta1Rad = phiRad - psiRad;
 
-        auto rotatedTheta1 = rotate_vector2(Vector2UnitX, theta1Rad);
+        Vector2 rotatedTheta1 = rotate_vector2(Vector2UnitX, theta1Rad);
 
-        auto rotatedTheta2 = rotate_vector2(Vector2UnitX, theta1Rad + theta2Rad);
+        Vector2 rotatedTheta2 = rotate_vector2(Vector2UnitX, theta1Rad + theta2Rad);
 
 
         Vector2 thighEndPos = Vector2{hip->position.x, hip->position.y} + rotatedTheta1 * L1;
