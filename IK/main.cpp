@@ -25,23 +25,6 @@ struct Bone
     }
 };
 
-// struct Pelvis : Bone
-// {
-//     Pelvis() = default;
-//
-//     Pelvis(Vector2 vector2, int i)
-//     {
-//         position = vector2;
-//         anlge = static_cast<float>(i);
-//         name = "Pelvis";
-//     }
-// };
-
-
-struct Shin : Bone
-{
-};
-
 struct Legs
 {
     float hipAngle;
@@ -59,23 +42,6 @@ Vector3 ToVector3(const Vector2& vector2)
 }
 
 Vector2 RotateVector2(Vector2 vector, float angle);
-
-// void DrawJoint3D(Bone* hip, Bone* knee)
-// {
-//     DrawSphere(ToVector3(hip->position), 10, RED);
-//
-//
-//     GuiSliderPro(Rectangle{hip->position.x + TEXTOFFSETX, hip->position.y + TEXTOFFSETY, 60, 20}, "-90",
-//                  "90", &hip->anlge, -90, 90, 10);
-//
-//     const Vector2 rotated = RotateVector2(Vector2Scale(hip->direction, knee->length), hip->anlge);
-//
-//     DrawCapsuleWires(ToVector3(hip->position), ToVector3(hip->position) + ToVector3(rotated),
-//                 30, 2, 2, Color{250, 0, 0, 255});
-//     knee->position = hip->position + rotated;
-//     knee->direction = Vector2Normalize(rotated);
-// }
-
 
 void DrawJoint(Bone* hip, Bone* knee)
 {
@@ -96,17 +62,14 @@ void DrawJoint(Bone* hip, Bone* knee)
 
 int main(int argc, char* argv[])
 {
-    InitWindow(800, 450, "raylib works");
+    InitWindow(800, 450, "2D 2-Segment IK solver");
     SetTargetFPS(60);
 
 
     Vector2 pelvisPos = Vector2{100, 100};
     Bone* hip = new Bone(pelvisPos, 0, 0, "Pelvis");
-    Bone* thigh = new Bone(Vector2{1,0}, 0, 100, "Thigh");
-
-    Bone* shin = new Bone(Vector2{1,0}, 0, 100, "Shin");
-
-
+    Bone* thigh = new Bone(Vector2{1, 0}, 0, 100, "Thigh");
+    Bone* shin = new Bone(Vector2{1, 0}, 0, 100, "Shin");
     Bone* foot = new Bone(Vector2(), 0, 50, "Foot");
 
 
@@ -146,56 +109,40 @@ int main(int argc, char* argv[])
         }
 
         DrawCircle(controlCircle.x, controlCircle.y, 10, GREEN);
-        // DrawJoint(hip, thigh);
-        // DrawJoint(thigh, shin);
-        // DrawJoint(shin, foot);
 
-        auto legLength = thigh->length + shin->length;
+        float L1 = thigh->length;
+        float L2 = shin->length;
+        auto legLength = L1 + L2;
         auto localTargetPos = controlCircle - hip->position;
-        auto hipToTargetDistance = std::min(Vector2Distance(hip->position, hip->position + localTargetPos), legLength);
-        DrawText(std::to_string(hipToTargetDistance).c_str(), controlCircle.x + TEXTOFFSETX,
+        auto r = Clamp(Vector2Length(localTargetPos), 0.1f, legLength);
+        DrawText(std::to_string(r).c_str(), controlCircle.x + TEXTOFFSETX,
                  controlCircle.y + TEXTOFFSETY, 20, BLACK);
-        //
-        // auto theta2 = acosf((powf(hip->length,2) + pow(shin->length,2) - pow(hipToTargetDistance,2))
-        //     / 2 * hip->length * shin->length);
-        //
-        // auto psi = acosf((pow(hip->length,2) - pow(shin->length,2) + pow(hipToTargetDistance,2)/2 * hip->length * hipToTargetDistance);
-        //
-        // auto theta1 = psi + theta2;
-        //
-        // auto rotatedThigh = RotateVector2(thigh->direction, theta1);
-        // DrawLine(hip->position.x, hip->position.y, rotatedThigh.x * thigh->length, rotatedThigh.y * thigh->length, BLACK);
-        // auto rotatedShin = RotateVector2(shin->direction, theta2);
-        //
-        // auto shinEndPos = hip->position + rotatedShin;
-        //
-        //
+
         DrawCircle(hip->position.x, hip->position.y, 10, RED);
-        // DrawLine(hip->position.x, hip->position.y, hip->position.x + thigh->direction.x * 100,
-        //          hip->position.y + thigh->direction.y * 100, BLACK);
 
-        // DrawLine(shinEndPos.x, shinEndPos.y, (shinEndPos + shin->position).x, (shinEndPos + shin->position).y, BLACK);        
-        //
+        float theta2Rad = PI- acosf(
+            Clamp((L1 * L1 + L2*L2 - r*r) / (2.0f * L1 * L2), -1.0f, 1.0f));
 
-        float theta2Rad = acosf(
-            (powf(thigh->length, 2) + (powf(shin->length, 2) - pow(hipToTargetDistance, 2))) / (2 * thigh->length * shin
-                ->length));
-        float fiRad = atan2f(controlCircle.y, controlCircle.x);
+        float phiRad = atan2f( localTargetPos.y, localTargetPos.x);
 
-        float psiRad = acos(
-            (powf(hipToTargetDistance, 2) - powf(thigh->length, 2) - pow(shin->length, 2)) / (shin->length * thigh->
-                length));
-        float theta1Rad = fiRad - psiRad;
+        float psiRad = acos(Clamp((r*r + L1*L1 - L2 * L2) / (2.0f    * L1 * r), -1.0f, 1.0f));
 
-        auto rotatedTheta1 = RotateVector2(thigh->direction, theta1Rad);
+        float theta1Rad = phiRad - psiRad;
 
-        auto rotatedTheta2 = RotateVector2(shin->direction, theta2Rad);
+        auto rotatedTheta1 = RotateVector2(Vector2UnitX, theta1Rad);
 
-        shin->position = hip->position + rotatedTheta1 * thigh->length;
-        DrawLine(hip->position.x, hip->position.y, hip->position.x + rotatedTheta1.x, hip->position.y + rotatedTheta1.y,
-                 GREEN);
-        DrawLine(shin->position.x, shin->position.y, shin->position.x + rotatedTheta2.x,
-                 shin->position.y + rotatedTheta2.y, YELLOW);
+        auto rotatedTheta2 = RotateVector2(Vector2UnitX, theta1Rad + theta2Rad);
+
+
+        Vector2 thighEndPos = Vector2{hip->position.x, hip->position.y} + rotatedTheta1 * L1;
+        DrawLine(hip->position.x, hip->position.y
+                 , thighEndPos.x, thighEndPos.y,
+                 BLACK);
+
+        DrawLine(thighEndPos.x, thighEndPos.y, thighEndPos.x + L2 * rotatedTheta2.x,
+                 thighEndPos.y + L2 * rotatedTheta2.y, BLACK);
+
+
         EndDrawing();
     }
     CloseWindow();
