@@ -1,12 +1,13 @@
 #include <C:/raylib/raylib/src/raylib.h>
 #include <C:/raylib/raylib/src/raymath.h>
-#define  RAYGUI_IMPLEMENTATION
 #include <cmath>
 #include <string>
 #include <vector>
-#include "raygui.h"
-#include <math.h>
 
+__readonly constexpr float textoffsetx = 30;
+__readonly constexpr float textoffsety = -10;
+
+ 
 struct Bone
 {
     Vector2 position;
@@ -17,48 +18,15 @@ struct Bone
 
     Bone(const Vector2& position, float anlge, float length, const std::string& name)
         : position(position),
-          anlge(anlge),
           length(length),
+          anlge(anlge),
           name(name)
     {
         direction = Vector2{0, 1};
     }
 };
 
-struct Legs
-{
-    float hipAngle;
-    float kneeAngle;
-    float ankleAngle;
-};
-
-__readonly float TEXTOFFSETX = 30;
-__readonly float TEXTOFFSETY = -10;
-
-
-Vector3 ToVector3(const Vector2& vector2)
-{
-    return Vector3{vector2.x, vector2.y, 0};
-}
-
-Vector2 RotateVector2(Vector2 vector, float angle);
-
-void DrawJoint(Bone* hip, Bone* knee)
-{
-    DrawCircle(hip->position.x, hip->position.y, 10, RED);
-
-
-    GuiSliderPro(Rectangle{hip->position.x + TEXTOFFSETX, hip->position.y + TEXTOFFSETY, 60, 20}, "-90",
-                 "90", &hip->anlge, -90, 90, 10);
-
-    const Vector2 rotated = RotateVector2(Vector2Scale(hip->direction, knee->length), hip->anlge);
-
-    DrawLine(hip->position.x, hip->position.y,
-             hip->position.x + rotated.x, hip->position.y + rotated.y,
-             Color{250, 0, 0, 255});
-    knee->position = hip->position + rotated;
-    knee->direction = Vector2Normalize(rotated);
-}
+static Vector2 rotate_vector2(Vector2 vector, float angle);
 
 int main(int argc, char* argv[])
 {
@@ -70,7 +38,6 @@ int main(int argc, char* argv[])
     Bone* hip = new Bone(pelvisPos, 0, 0, "Pelvis");
     Bone* thigh = new Bone(Vector2{1, 0}, 0, 100, "Thigh");
     Bone* shin = new Bone(Vector2{1, 0}, 0, 100, "Shin");
-    Bone* foot = new Bone(Vector2(), 0, 50, "Foot");
 
 
     Vector2 controlCircle = Vector2{20, 20};
@@ -108,17 +75,17 @@ int main(int argc, char* argv[])
                 dragging = false;
         }
 
-        DrawCircle(controlCircle.x, controlCircle.y, 10, GREEN);
+        DrawCircle(controlCircle.x,  controlCircle.y, 10, GREEN);
 
         float L1 = thigh->length;
         float L2 = shin->length;
         auto legLength = L1 + L2;
         auto localTargetPos = controlCircle - hip->position;
         auto r = Clamp(Vector2Length(localTargetPos), 0.1f, legLength);
-        DrawText(std::to_string(r).c_str(), controlCircle.x + TEXTOFFSETX,
-                 controlCircle.y + TEXTOFFSETY, 20, BLACK);
+        DrawText(std::to_string(r).c_str(), controlCircle.x + textoffsetx,
+                 controlCircle.y + textoffsety, 20, BLACK);
 
-        DrawCircle(hip->position.x, hip->position.y, 10, RED);
+        DrawCircle(hip->position.x,  hip->position.y, 10.0f, RED);
 
         float theta2Rad = PI- acosf(
             Clamp((L1 * L1 + L2*L2 - r*r) / (2.0f * L1 * L2), -1.0f, 1.0f));
@@ -129,18 +96,16 @@ int main(int argc, char* argv[])
 
         float theta1Rad = phiRad - psiRad;
 
-        auto rotatedTheta1 = RotateVector2(Vector2UnitX, theta1Rad);
+        auto rotatedTheta1 = rotate_vector2(Vector2UnitX, theta1Rad);
 
-        auto rotatedTheta2 = RotateVector2(Vector2UnitX, theta1Rad + theta2Rad);
+        auto rotatedTheta2 = rotate_vector2(Vector2UnitX, theta1Rad + theta2Rad);
 
 
         Vector2 thighEndPos = Vector2{hip->position.x, hip->position.y} + rotatedTheta1 * L1;
-        DrawLine(hip->position.x, hip->position.y
-                 , thighEndPos.x, thighEndPos.y,
-                 BLACK);
+        DrawLineEx(hip->position, thighEndPos, 5.0f, BLACK);
 
-        DrawLine(thighEndPos.x, thighEndPos.y, thighEndPos.x + L2 * rotatedTheta2.x,
-                 thighEndPos.y + L2 * rotatedTheta2.y, BLACK);
+        DrawLineEx(thighEndPos, thighEndPos + Vector2Scale( rotatedTheta2,L2),
+                 5.0f, BLACK);
 
 
         EndDrawing();
@@ -150,7 +115,7 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-Vector2 RotateVector2(const Vector2 vector, const float angle)
+Vector2 rotate_vector2(const Vector2 vector, const float angle)
 {
     float radAngle = angle;
     const float x = cos(radAngle) * vector.x - vector.y * sin(radAngle);
