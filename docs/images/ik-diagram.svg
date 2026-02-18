@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420" role="img" aria-label="2D IK diagram">
+  <defs>
+    <style>
+      .label { font: 14px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; fill: #0f172a; }
+      .small { font: 12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; fill: #334155; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#334155"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="960" height="420" fill="#f8fafc"/>
+  <path d="M0,320 C170,250 290,390 470,300 C640,215 780,245 960,270 L960,420 L0,420 Z" fill="#eef2f7"/>
+
+  <!-- IK chain geometry (root -> knee -> end) and a target -->
+  <g transform="translate(80,30)">
+    <!-- Reference grid -->
+    <g opacity="0.25">
+      <path d="M0,350 H800" stroke="#cbd5e1" stroke-width="2"/>
+      <path d="M0,250 H800" stroke="#cbd5e1" stroke-width="1"/>
+      <path d="M0,150 H800" stroke="#cbd5e1" stroke-width="1"/>
+      <path d="M0,50 H800" stroke="#cbd5e1" stroke-width="1"/>
+    </g>
+
+    <!-- Points -->
+    <circle cx="90" cy="290" r="10" fill="#ef4444"/>
+    <circle cx="290" cy="170" r="9" fill="#111827" stroke="#e5e7eb" stroke-width="3"/>
+    <circle cx="470" cy="260" r="8" fill="#111827" stroke="#e5e7eb" stroke-width="3"/>
+    <circle cx="640" cy="140" r="10" fill="#22c55e"/>
+
+    <!-- Bones -->
+    <line x1="90" y1="290" x2="290" y2="170" stroke="#f59e0b" stroke-width="12" stroke-linecap="round"/>
+    <line x1="290" y1="170" x2="470" y2="260" stroke="#f59e0b" stroke-width="12" stroke-linecap="round"/>
+
+    <!-- Target line -->
+    <line x1="90" y1="290" x2="640" y2="140" stroke="#22c55e" stroke-width="3" stroke-dasharray="8 10" opacity="0.9"/>
+
+    <!-- Labels -->
+    <text class="label" x="64" y="320">root</text>
+    <text class="label" x="276" y="152">knee</text>
+    <text class="label" x="458" y="292">end</text>
+    <text class="label" x="654" y="146">target</text>
+
+    <!-- Segment length annotations -->
+    <line x1="130" y1="310" x2="250" y2="240" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+    <text class="small" x="175" y="244">L1</text>
+
+    <line x1="330" y1="160" x2="430" y2="210" stroke="#334155" stroke-width="2" marker-end="url(#arrow)"/>
+    <text class="small" x="376" y="190">L2</text>
+
+    <line x1="170" y1="278" x2="540" y2="178" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow)"/>
+    <text class="small" x="330" y="210">r = |target - root|</text>
+  </g>
+
+  <text class="label" x="36" y="38">2D IK: root, knee, end, and a draggable target</text>
+  <text class="small" x="36" y="62">This diagram is illustrative; the demo solves per chain each frame.</text>
+</svg>
+
