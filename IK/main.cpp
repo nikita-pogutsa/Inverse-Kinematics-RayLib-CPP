@@ -190,7 +190,7 @@ int main()
             chains[i].Draw(debug);
         }
 
-        DrawText("N: new chain\nBksp: delete last chain", 10, 10, 18, DARKGRAY);
+        DrawText("N: new chain", 10, 10, 18, DARKGRAY);
         DrawText("Bksp: delete last chain", 10, 50, 18, DARKGRAY);
 
         if (GuiCheckBox(Rectangle{10, 75, 40, 40}, "MIRROR", &noMirrorBend))
