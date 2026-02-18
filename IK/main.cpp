@@ -3,16 +3,13 @@
 #include <vector>
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
+#include "TwoBoneIK2D.h"
 
 static constexpr float k_text_offset_x = 30.0f;
 static constexpr float k_text_offset_y = -10.0f;
 
-static Vector2 RotateVector2(const Vector2 vector, const float angle)
-{
-    const float x = cosf(angle) * vector.x - vector.y * sinf(angle);
-    const float y = sinf(angle) * vector.x + vector.y * cosf(angle);
-    return Vector2{x, y};
-}
+static ik2d::Vec2 ToIKVec2(const Vector2 v) { return ik2d::Vec2{v.x, v.y}; }
+static Vector2 ToRayVec2(const ik2d::Vec2 v) { return Vector2{v.x, v.y}; }
 
 static Color GetNextColor(const int index)
 {
@@ -56,37 +53,11 @@ struct Chain
 
     void Solve(bool autoBend)
     {
-        const Vector2 local_target = target - root;
+        const ik2d::TwoBoneResult res =
+            ik2d::TwoBoneIK2D::Solve(ToIKVec2(root), L1, L2, ToIKVec2(target), bendDir, autoBend);
 
-        const float max_reach = L1 + L2;
-        const float min_reach = fabsf(L1 - L2);
-
-        // CLamp IK target at max distance (thigh + shin)
-        const float radius = Clamp(Vector2Length(local_target), fmaxf(0.001f, min_reach), max_reach);
-
-        const int heading =
-            autoBend ? (local_target.x >= 0.0f ? 1 : -1) : ((bendDir >= 0) ? 1 : -1);
-
-        const float phiRad = atan2f(local_target.y, local_target.x);
-
-        // Angle between L1 and r (hip to IK target).
-        const float cosPsi =
-            (radius * radius + L1 * L1 - L2 * L2) / (2.0f * L1 * radius);
-        const float psiRad = acosf(Clamp(cosPsi, -1.0f, 1.0f));
-
-        // Internal knee angle between L1 and L2.
-        const float cos_knee =
-            (L1 * L1 + L2 * L2 - radius * radius) / (2.0f * L1 * L2);
-        const float kneeInternalRad = acosf(Clamp(cos_knee, -1.0f, 1.0f));
-
-        const float theta1Rad = phiRad - heading * psiRad;
-        const float theta2Rad = heading * (PI - kneeInternalRad);
-
-        const Vector2 rotatedThigh = RotateVector2(Vector2UnitX, theta1Rad);
-        const Vector2 rotatedShin = RotateVector2(Vector2UnitX, theta1Rad + theta2Rad);
-
-        knee = root + rotatedThigh * L1;
-        end = knee + rotatedShin * L2;
+        knee = ToRayVec2(res.knee);
+        end = ToRayVec2(res.end);
     }
 
     bool CheckIKTargetPressed(const Vector2 point, const float hitRadius = 20.0f) const

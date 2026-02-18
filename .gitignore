@@ -1,5 +1,6 @@
 ﻿# Build outputs
 /build/
+/build_codex_verify/
 /out/
 /bin/
 /lib/
