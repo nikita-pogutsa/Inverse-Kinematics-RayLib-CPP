@@ -1,130 +1,204 @@
 #include <C:/raylib/raylib/src/raylib.h>
 #include <C:/raylib/raylib/src/raymath.h>
-#include <cmath>
-#include <string>
 #include <vector>
+#define RAYGUI_IMPLEMENTATION
+#include "raygui.h"
 
-__readonly constexpr float textoffsetx = 30;
-__readonly constexpr float textoffsety = -10;
+static constexpr float k_text_offset_x = 30.0f;
+static constexpr float k_text_offset_y = -10.0f;
 
- 
-struct Bone
+static Vector2 RotateVector2(const Vector2 vector, const float angle)
 {
-    Vector2 position;
-    Vector2 direction;
-    float length;
-    float anlge;
-    std::string name = "Bone";
+    const float x = cosf(angle) * vector.x - vector.y * sinf(angle);
+    const float y = sinf(angle) * vector.x + vector.y * cosf(angle);
+    return Vector2{x, y};
+}
 
-    Bone(const Vector2& position, float anlge, float length, const std::string& name)
-        : position(position),
-          length(length),
-          anlge(anlge),
-          name(name)
+static Color GetNextColor(const int index)
+{
+    static const Color palette[] = {
+        BLACK,
+        ORANGE,
+        YELLOW,
+        PURPLE,
+        GRAY,
+        BLUE
+    };
+
+    return palette[index % std::size(palette)];
+}
+
+struct Chain
+{
+    const float target_radius = 10.0f;
+    const float line_thickness = 5.0f;
+    const float joint_radius = 8.0f;
+
+    Vector2 root{};
+    //Thigh length
+    float L1 = 100.0f;
+    //Shin length
+    float L2 = 100.0f;
+
+    Color chainColor = BLACK;
+    Color targetColor = GREEN;
+    Color rootColor = RED;
+
+    //IK target pos
+    Vector2 target{};
+
+    // Whether to mirror the knee bend direction based on the X position of the IK target. 
+    // Upward bend by default 
+    int bendDir = 1;
+
+    Vector2 knee{};
+    Vector2 end{};
+
+    void Solve(bool autoBend)
     {
-        direction = Vector2{0, 1};
+        const Vector2 local_target = target - root;
+
+        const float max_reach = L1 + L2;
+        const float min_reach = fabsf(L1 - L2);
+
+        // CLamp IK target at max distance (thigh + shin)
+        const float radius = Clamp(Vector2Length(local_target), fmaxf(0.001f, min_reach), max_reach);
+
+        const int heading =
+            autoBend ? (local_target.x >= 0.0f ? 1 : -1) : ((bendDir >= 0) ? 1 : -1);
+
+        const float phiRad = atan2f(local_target.y, local_target.x);
+
+        // Angle between L1 and r (hip to IK target).
+        const float cosPsi =
+            (radius * radius + L1 * L1 - L2 * L2) / (2.0f * L1 * radius);
+        const float psiRad = acosf(Clamp(cosPsi, -1.0f, 1.0f));
+
+        // Internal knee angle between L1 and L2.
+        const float cos_knee =
+            (L1 * L1 + L2 * L2 - radius * radius) / (2.0f * L1 * L2);
+        const float kneeInternalRad = acosf(Clamp(cos_knee, -1.0f, 1.0f));
+
+        const float theta1Rad = phiRad - heading * psiRad;
+        const float theta2Rad = heading * (PI - kneeInternalRad);
+
+        const Vector2 rotatedThigh = RotateVector2(Vector2UnitX, theta1Rad);
+        const Vector2 rotatedShin = RotateVector2(Vector2UnitX, theta1Rad + theta2Rad);
+
+        knee = root + rotatedThigh * L1;
+        end = knee + rotatedShin * L2;
+    }
+
+    bool CheckIKTargetPressed(const Vector2 point, const float hitRadius = 20.0f) const
+    {
+        return CheckCollisionPointCircle(point, target, hitRadius);
+    }
+
+    void Draw(const bool drawDebug = false) const
+    {
+        DrawCircleV(target, target_radius, targetColor);
+        DrawCircleV(root, joint_radius, rootColor);
+        DrawCircleV(knee, joint_radius, chainColor);
+        DrawCircleV(end, joint_radius * 0.75f, chainColor);
+
+        DrawLineEx(root, knee, line_thickness, chainColor);
+        DrawLineEx(knee, end, line_thickness, chainColor);
+
+        if (drawDebug)
+        {
+            DrawLineV(root, target, Fade(targetColor, 0.35f));
+            DrawText(TextFormat("L1=%.0f L2=%.0f", L1, L2),
+                     static_cast<int>(target.x + k_text_offset_x),
+                     static_cast<int>(target.y + k_text_offset_y),
+                     18,
+                     DARKGRAY);
+        }
     }
 };
 
-static Vector2 rotate_vector2(Vector2 vector, float angle);
-
-int main(int argc, char* argv[])
+void CreateNewChain(std::vector<Chain>* chains, const Vector2 mouse)
 {
-    InitWindow(800, 450, "2D 2-Segment IK solver");
+    const int idx = static_cast<int>(chains->size());
+    Chain chain{};
+    chain.root = mouse;
+    chain.L1 = 100.0f;
+    chain.L2 = 100.0f;
+    chain.target = mouse + Vector2{150.0f, 0.0f};
+    chain.chainColor = GetNextColor(idx);
+    chains->push_back(chain);
+}
+
+bool noMirrorBend;
+
+int main()
+{
+    InitWindow(800, 450, "2D Multi-Chain IK");
     SetTargetFPS(60);
 
+    std::vector<Chain> chains = std::vector<Chain>(5);
 
-    Vector2 pelvisPos = Vector2{100, 100};
-    Bone* hip = new Bone(pelvisPos, 0, 0, "Pelvis");
-    Bone* thigh = new Bone(Vector2{1, 0}, 0, 100, "Thigh");
-    Bone* shin = new Bone(Vector2{1, 0}, 0, 100, "Shin");
-
-
-    Vector2 controlCircle = Vector2{20, 20};
-    Camera3D camera;
-    camera.position = {0.0f, 0.0f, 200.0f};
-    camera.target = {0.0f, 0.0f, 0.0f};
-    camera.up = {0.0f, 1.0f, 0.0f};
-    camera.fovy = 45.0f;
-    camera.projection = CAMERA_ORTHOGRAPHIC;
-    UpdateCamera(&camera, 0);
-
-
-    bool dragging = false;
-    Vector2 dragOffset = {0, 0};
+    int activeDrag = -1;
+    Vector2 dragOffset{0.0f, 0.0f};
 
     while (!WindowShouldClose())
     {
-        BeginDrawing();
+        const Vector2 mouse = GetMousePosition();
 
-        ClearBackground(RAYWHITE);
 
-        Vector2 mouse = GetMousePosition();
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) &&
-            CheckCollisionPointCircle(mouse, controlCircle, 20))
+        if (IsKeyPressed(KEY_N))
         {
-            dragging = true;
-            dragOffset = {mouse.x - controlCircle.x, mouse.y - controlCircle.y};
+            CreateNewChain(&chains, mouse);
         }
 
-        if (dragging)
+        if (IsKeyPressed(KEY_BACKSPACE) && !chains.empty())
+        {
+            chains.pop_back();
+            activeDrag = -1;
+        }
+
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+        {
+            activeDrag = -1;
+            for (int i = static_cast<int>(chains.size()) - 1; i >= 0; --i)
+            {
+                if (chains[i].CheckIKTargetPressed(mouse))
+                {
+                    activeDrag = i;
+                    dragOffset = mouse - chains[i].target;
+                    break;
+                }
+            }
+        }
+
+        if (activeDrag >= 0)
         {
             if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
-                controlCircle = {mouse.x - dragOffset.x, mouse.y - dragOffset.y};
+                chains[activeDrag].target = mouse - dragOffset;
             else
-                dragging = false;
+                activeDrag = -1;
         }
 
-        DrawCircle(controlCircle.x,  controlCircle.y, 10, GREEN);
+        for (Chain& chain : chains)
+            chain.Solve(noMirrorBend);
 
-        float L1 = thigh->length;
-        float L2 = shin->length;
-        auto legLength = L1 + L2;
-        //Converting target position into hip space
-        Vector2 localTargetPos = controlCircle - hip->position;
-        //r - distance between target and origin (hip)
-        const float radius = Clamp(Vector2Length(localTargetPos), 0.1f, legLength);
-        DrawText(std::to_string(radius).c_str(), controlCircle.x + textoffsetx,
-                 controlCircle.y + textoffsety, 20, BLACK);
+        BeginDrawing();
+        ClearBackground(RAYWHITE);
 
-        DrawCircle(hip->position.x,  hip->position.y, 10.0f, RED);
+        for (int i = 0; i < static_cast<int>(chains.size()); ++i)
+        {
+            const bool debug = (i == activeDrag);
+            chains[i].Draw(debug);
+        }
 
-        //Shin angle - angle betwwen the forward thigh vector and radius
-        float theta2Rad = PI- acosf(
-            Clamp((L1 * L1 + L2*L2 - radius*radius) / (2.0f * L1 * L2), -1.0f, 1.0f));
+        DrawText("N: new chain\nBksp: delete last chain", 10, 10, 18, DARKGRAY);
+        DrawText("Bksp: delete last chain", 10, 50, 18, DARKGRAY);
 
-        //Angle between the X axis and the radius vector (in radians)
-        float phiRad = atan2f( localTargetPos.y, localTargetPos.x);
-
-        //angle betwween L1 (thigh) and r (hip to IK target)
-        float psiRad = acos(Clamp((radius*radius + L1*L1 - L2 * L2) / (2.0f    * L1 * radius), -1.0f, 1.0f));
-
-        float theta1Rad = phiRad - psiRad;
-
-        Vector2 rotatedTheta1 = rotate_vector2(Vector2UnitX, theta1Rad);
-
-        Vector2 rotatedTheta2 = rotate_vector2(Vector2UnitX, theta1Rad + theta2Rad);
-
-
-        Vector2 thighEndPos = Vector2{hip->position.x, hip->position.y} + rotatedTheta1 * L1;
-        DrawLineEx(hip->position, thighEndPos, 5.0f, BLACK);
-
-        DrawLineEx(thighEndPos, thighEndPos + Vector2Scale( rotatedTheta2,L2),
-                 5.0f, BLACK);
-
-
+        if (GuiCheckBox(Rectangle{10, 75, 40, 40}, "MIRROR", &noMirrorBend))
+        {
+        }
         EndDrawing();
     }
+
     CloseWindow();
-
     return 0;
-}
-
-Vector2 rotate_vector2(const Vector2 vector, const float angle)
-{
-    float radAngle = angle;
-    const float x = cos(radAngle) * vector.x - vector.y * sin(radAngle);
-    const float y = sin(radAngle) * vector.x + vector.y * cos(radAngle);
-
-    return Vector2{x, y};
 }
