@@ -163,6 +163,7 @@
   <ItemGroup>
     <ClInclude Include="raygui.h" />
     <ClInclude Include="TwoBoneIK2D.h" />
+    <ClInclude Include="TwoBoneIK2D_Unreal.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
